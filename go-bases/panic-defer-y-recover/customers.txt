@@ -1,0 +1,4 @@
+Informacion de cliente:
+Fausto S
+4444444
+123
