@@ -2,11 +2,14 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"go-web/interactuando-con-la-api/Model"
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 )
 
@@ -96,4 +99,77 @@ func GetProductsByPrice(ctx *gin.Context) {
 		Message: "Success Price",
 		Data:    prod,
 	})
+}
+func AddProduct(ctx *gin.Context) {
+	var product Model.Product
+
+	if err := ctx.ShouldBind(&product); err != nil {
+		ctx.JSON(http.StatusBadRequest, Model.Response{
+			Message: "Error Should Bind",
+			Data:    nil,
+		})
+		return
+	}
+	verification := verificationAllFields(product)
+	if verification.Data != true {
+		ctx.JSON(http.StatusBadRequest, verification)
+		return
+	}
+	product.Id = products.Products[len(products.Products)-1].Id + 1
+	products.Products = append(products.Products, product)
+	ctx.JSON(http.StatusOK, Model.Response{
+		Message: fmt.Sprintf("¡Product successfully added! Your ID %v is", product.Id),
+		Data:    products,
+	})
+}
+func verificationAllFields(product Model.Product) Model.Response {
+	var setResponse Model.Response
+
+	if err := validator.New().Struct(product); err != nil {
+		setResponse = Model.Response{
+			Message: "Invalid fields",
+			Data:    err.Error(),
+		}
+	}
+	if verification := codeValueVerification(product.CodeValue); verification.Data != true {
+		setResponse = verification
+	} else if verification := dateVerification(product.Expiration); verification.Data != true {
+		setResponse = verification
+	}
+
+	return setResponse
+
+}
+
+func codeValueVerification(item string) Model.Response {
+	for _, currentProduct := range products.Products {
+		if currentProduct.CodeValue == item {
+			fmt.Println(currentProduct.CodeValue)
+			return Model.Response{
+				Message: "The value of CodeValue already exists",
+				Data:    false,
+			}
+		}
+	}
+	return Model.Response{
+		Message: "Success: code value verification",
+		Data:    true,
+	}
+}
+
+func dateVerification(item string) Model.Response {
+	dateRe := "^([0-9]{2})+([/])([0-9]{2})+([/])([0-9]{4})$"
+	reg, _ := regexp.Compile(dateRe)
+	if reg.MatchString(item) {
+		return Model.Response{
+			Message: "Success: date verification",
+			Data:    true,
+		}
+	} else {
+		return Model.Response{
+			Message: "The date format is not valid",
+			Data:    false,
+		}
+	}
+
 }
